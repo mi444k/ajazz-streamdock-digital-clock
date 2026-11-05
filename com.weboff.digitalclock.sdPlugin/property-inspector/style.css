@@ -1,0 +1,16 @@
+:root { font-family: 'Avenir Next', Avenir, sans-serif; font-size: 12px; line-height: 1.4; color: #26313d; background: linear-gradient(140deg, #f7f8fa, #eef0f3); color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { width: 100%; max-width: 360px; padding: 12px; }
+h1 { font-size: 17px; line-height: 1.2; margin: 0 0 5px; }
+p { font-size: 11px; color: #56616e; margin: 0 0 14px; }
+label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 5px; }
+select, button { font: inherit; min-height: 32px; border: 1px solid #bcc5cf; border-radius: 4px; }
+select { display: block; width: 100%; min-width: 0; padding: 6px 8px; color: #26313d; background: #fff; }
+.actions { display: flex; gap: 7px; margin-top: 10px; flex-wrap: wrap; }
+button { padding: 6px 9px; background: #bd5a00; color: #fff; border-color: #bd5a00; font-size: 11px; font-weight: 600; cursor: pointer; }
+button.secondary { color: #26313d; background: transparent; border-color: #bcc5cf; }
+button:disabled { opacity: .5; cursor: default; }
+output { display: block; font-size: 11px; color: #56616e; margin-top: 9px; overflow-wrap: anywhere; }
+output[data-error=true] { color: #b3261e; }
+:focus-visible { outline: 2px solid #bd5a00; outline-offset: 2px; }
