@@ -1,4 +1,4 @@
-:root { font-family: 'Avenir Next', Avenir, sans-serif; font-size: 12px; line-height: 1.4; color: #26313d; background: linear-gradient(140deg, #f7f8fa, #eef0f3); color-scheme: light; }
+:root { font-family: 'Avenir Next', 'Trebuchet MS', sans-serif; font-size: 12px; line-height: 1.4; color: #26313d; background: linear-gradient(140deg, #f7f8fa, #eef0f3); color-scheme: light; }
 * { box-sizing: border-box; }
 body { margin: 0; }
 main { width: 100%; max-width: 360px; padding: 12px; }

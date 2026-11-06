@@ -15,7 +15,7 @@ function renderClockImage(date) {
   const svg = ['<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">',
     '<rect width="64" height="64" fill="#000000"/>'];
   ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'].forEach((day, index) => {
-    svg.push('<text data-weekday="' + index + '" data-active="' + (index === parts.weekday) + '" x="' + (6 + index * 8.6) + '" y="10" text-anchor="middle" font-family="Avenir Next" font-size="4.8" font-weight="700" fill="' + (index === parts.weekday ? '#ff941c' : '#62594f') + '">' + day + '</text>');
+    svg.push('<text data-weekday="' + index + '" data-active="' + (index === parts.weekday) + '" x="' + (6 + index * 8.6) + '" y="10" text-anchor="middle" font-family="Avenir Next, Trebuchet MS, sans-serif" font-size="4.8" textLength="6.5" lengthAdjust="spacingAndGlyphs" font-weight="700" fill="' + (index === parts.weekday ? '#ff941c' : '#62594f') + '">' + day + '</text>');
   });
   svg.push('<g data-role="time" aria-label="' + parts.time + '">');
   Array.from(parts.hours + parts.minutes).forEach((digit, position) => {

@@ -18,6 +18,17 @@ jobs:
         run: ./scripts/build-windows.ps1
       - name: Native engine tests
         run: ./tests/test-windows-native.ps1
+      - name: Native read-only protocol checks
+        run: node tests/windows-native-protocol-smoke.cjs
+      - name: Windows browser visual checks
+        run: node tests/windows-render.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: digital-clock-windows-visuals
+          path: com.weboff.digitalclock.sdPlugin/tests/render-output/*.png
+          retention-days: 1
+          if-no-files-found: ignore
       - name: Unit tests
         run: npm test
       - uses: actions/upload-artifact@v4
