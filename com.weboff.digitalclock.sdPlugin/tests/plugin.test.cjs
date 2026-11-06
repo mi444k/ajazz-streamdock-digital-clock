@@ -29,7 +29,7 @@ function fixture() {
     async open() { throw new Error('Read-only entry test forbids opening an application.'); }
     dispose() { this.disposals++; }
   }
-  const launch = () => startPlugin({ platform: 'darwin', args, WebSocketImpl: Socket, LauncherImpl: Launcher, helperPath: '/fake/calendar-helper', now: () => new Date(2026, 10, 5, 14, 7), setTimeoutImpl: (fn, delay) => { const id = ++sequence; timers.set(id, { fn, delay }); return id; }, clearTimeoutImpl: id => timers.delete(id) });
+  const launch = (extra = {}) => startPlugin({ platform: 'darwin', ...extra, args, WebSocketImpl: Socket, LauncherImpl: Launcher, helperPath: '/fake/calendar-helper', now: () => new Date(2026, 10, 5, 14, 7), setTimeoutImpl: (fn, delay) => { const id = ++sequence; timers.set(id, { fn, delay }); return id; }, clearTimeoutImpl: id => timers.delete(id) });
   return { sockets, launchers, timers, launch };
 }
 
@@ -64,6 +64,20 @@ test('entry disposes launch resources and clock timers once after socket close o
     session.socket.emit('message', Buffer.from(JSON.stringify({ event: 'willAppear', action: 'com.weboff.digitalclock.clock', context: 'late', payload: { settings: {} } }))); await flush();
     assert.equal(session.socket.sent.length, count);
   }
+});
+
+test('the Windows entry sends the same selected runtime platform through its inspector catalog boundary', async () => {
+  const f = fixture(); const session = f.launch({ platform: 'win32' });
+  try {
+    session.socket.readyState = 1; session.socket.emit('open');
+    session.socket.emit('message', Buffer.from(JSON.stringify({ event: 'willAppear', action: 'com.weboff.digitalclock.clock', context: 'key', payload: { settings: {} } })));
+    await flush();
+    session.socket.emit('message', Buffer.from(JSON.stringify({ event: 'sendToPlugin', action: 'com.weboff.digitalclock.clock', context: 'key', payload: { command: 'applications', requestId: 'windows-entry' } })));
+    await flush();
+    const reply = session.socket.sent.find(value => value.event === 'sendToPropertyInspector');
+    assert.equal(reply.payload.platform, 'win32', 'the inspector must use the same platform as the executable and catalog validator');
+    assert.equal(reply.payload.requestId, 'windows-entry');
+  } finally { session.dispose(); }
 });
 
 test('manifest declares a separate Node20 macOS clock with both controllers and real inspector and icon assets', () => {

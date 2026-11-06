@@ -59,13 +59,88 @@ namespace Weboff.DigitalClock.Windows {
             } catch { return Error("invalid_response"); }
         }
     }
+    public sealed class WindowsApplicationPlatform : IApplicationPlatform {
+        private static void Release(object value) {
+            if (value != null && System.Runtime.InteropServices.Marshal.IsComObject(value)) {
+                try { System.Runtime.InteropServices.Marshal.FinalReleaseComObject(value); } catch { }
+            }
+        }
+        private static object Shell() {
+            var type = Type.GetTypeFromProgID("Shell.Application", true);
+            return Activator.CreateInstance(type);
+        }
+        public IList<ShellApplication> Enumerate() {
+            object shell = null, folder = null, items = null;
+            try {
+                shell = Shell();
+                folder = ((dynamic)shell).NameSpace("shell:AppsFolder");
+                if (folder == null) throw new InvalidOperationException();
+                items = ((dynamic)folder).Items();
+                int count = (int)((dynamic)items).Count;
+                if (count < 0 || count > 1024) throw new InvalidOperationException();
+                var result = new List<ShellApplication>();
+                for (int index = 0; index < count; index++) {
+                    object item = null;
+                    try {
+                        item = ((dynamic)items).Item(index);
+                        string appId = ((dynamic)item).ExtendedProperty("System.AppUserModel.ID") as string;
+                        if (String.IsNullOrWhiteSpace(appId)) continue;
+                        string name = ((dynamic)item).Name as string;
+                        result.Add(new ShellApplication(appId, name));
+                    } finally { Release(item); }
+                }
+                return result;
+            } finally { Release(items); Release(folder); Release(shell); }
+        }
+        public bool Invoke(ShellApplication application) {
+            object shell = null, folder = null, items = null, selected = null;
+            try {
+                // Re-resolve the exact installed identity immediately before dispatch.
+                shell = Shell(); folder = ((dynamic)shell).NameSpace("shell:AppsFolder");
+                if (folder == null) return false;
+                items = ((dynamic)folder).Items();
+                int count = (int)((dynamic)items).Count;
+                if (count < 0 || count > 1024) return false;
+                for (int index = 0; index < count; index++) {
+                    object item = ((dynamic)items).Item(index);
+                    string appId;
+                    try { appId = ((dynamic)item).ExtendedProperty("System.AppUserModel.ID") as string; }
+                    catch { Release(item); throw; }
+                    if (String.Equals(appId, application.AppUserModelId, StringComparison.Ordinal)) {
+                        if (selected != null) { Release(item); return false; }
+                        selected = item;
+                    } else Release(item);
+                }
+                if (selected == null) return false;
+                ((dynamic)selected).InvokeVerb();
+                // Shell dispatch acceptance is not proof that an application window opened.
+                return true;
+            } catch { return false; }
+            finally { Release(selected); Release(items); Release(folder); Release(shell); }
+        }
+    }
     public static class Program {
+        [STAThread]
         public static int Main(string[] args) {
             Console.OutputEncoding = new System.Text.UTF8Encoding(false);
             Console.InputEncoding = new System.Text.UTF8Encoding(false);
-            Console.WriteLine(new JavaScriptSerializer().Serialize(new Dictionary<string, object> { { "type", "error" }, { "code", "unavailable" } }));
+            Dictionary<string, object> result;
+            try {
+                var engine = new ApplicationEngine(new WindowsApplicationPlatform());
+                if (args.Length == 1 && args[0] == "--list") result = engine.List();
+                else if (args.Length == 2 && args[0] == "--open") result = engine.Open(args[1]);
+                else result = Error("invalid_request");
+            } catch { result = Error("unavailable"); }
+            var serializer = new JavaScriptSerializer { MaxJsonLength = 1024 * 1024 };
+            string json;
+            try {
+                json = serializer.Serialize(result);
+                if (System.Text.Encoding.UTF8.GetByteCount(json) > 1024 * 1024) throw new InvalidOperationException();
+            } catch { json = serializer.Serialize(Error("invalid_response")); }
+            Console.WriteLine(json); Console.Out.Flush();
             return 0;
         }
+        private static Dictionary<string, object> Error(string code) { return new Dictionary<string, object> { { "type", "error" }, { "code", code } }; }
     }
 }
 
