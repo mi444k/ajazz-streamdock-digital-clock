@@ -4,14 +4,14 @@ const assert = require('node:assert/strict');
 const { HostPlugin } = require('../src/host.cjs');
 const action = 'com.weboff.digitalclock.clock';
 const flush = () => new Promise(resolve => setImmediate(resolve));
-function fixture() {
+function fixture(options = {}) {
   const calls = [], sent = [], timers = new Map(); let sequence = 0, now = new Date(2026, 10, 5, 14, 7, 30, 250);
   const launcher = {
     async list() { calls.push(['list']); return [{ id: 'exampleapp', name: 'ExampleApp', path: '/Applications/ExampleApp.app', bundleId: 'com.example.calendar' }]; },
     async open(id) { calls.push(['open', id]); return { opened: true, applicationId: id }; },
     dispose() { calls.push(['dispose']); }
   };
-  const plugin = new HostPlugin({ uuid: 'clock-instance', send: value => sent.push(value), launcher, now: () => now,
+  const plugin = new HostPlugin({ platform: 'darwin', ...options, uuid: 'clock-instance', send: value => sent.push(value), launcher, now: () => now,
     setTimeoutImpl: (fn, delay) => { const id = ++sequence; timers.set(id, { fn, delay }); return id; }, clearTimeoutImpl: id => timers.delete(id) });
   const appear = (context = 'a', settings = {}, controller = 'Keypad') => plugin.handle({ event: 'willAppear', action, context, payload: { settings, controller } });
   const press = (context = 'a', event = 'keyUp', suppliedAction = action) => plugin.handle({ event, action: suppliedAction, context });
@@ -131,4 +131,17 @@ test('a late application-open failure cannot alert a replacement key selection',
       assert.equal(f.sent.some(message => message.event === 'sendToPropertyInspector' && message.payload.type === 'error'), false);
     } finally { f.plugin.dispose(); }
   }
+});
+
+
+test('Windows catalog replies identify the runtime platform without exposing launch identities to the inspector', async () => {
+  const f = fixture({ platform: 'win32' });
+  try {
+    f.launcher.list = async () => [{ id: 'example-app', name: 'Example App', appUserModelId: 'Example.Package!App' }];
+    await f.appear(); await f.applications('a', 'windows-catalog');
+    const payload = f.sent.find(message => message.event === 'sendToPropertyInspector').payload;
+    assert.equal(payload.platform, 'win32');
+    assert.deepEqual(payload.applications, [{ id: 'example-app', name: 'Example App' }]);
+    assert.equal(JSON.stringify(payload).includes('Example.Package!App'), false);
+  } finally { f.plugin.dispose(); }
 });

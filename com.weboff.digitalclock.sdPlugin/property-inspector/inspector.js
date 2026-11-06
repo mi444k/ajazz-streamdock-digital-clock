@@ -27,10 +27,12 @@
     select.disabled = false; refresh.disabled = false;
   }
   function choices(state, selected) {
-    select.replaceChildren(option('apple-calendar', 'Apple Calendar (default)'));
+    const mac = state.platform === 'darwin';
+    if (!mac && selected === 'apple-calendar') selected = '';
+    select.replaceChildren(mac ? option('apple-calendar', 'Apple Calendar (default)') : option('', 'Choose an application'));
     for (const application of state.applications) if (application.id !== 'apple-calendar') select.appendChild(option(application.id, application.name));
-    const available = selected === 'apple-calendar' || state.applications.some(application => application.id === selected);
-    if (!available) select.appendChild(option(selected, (state.saved.displayName || 'Saved application') + ' — unavailable'));
+    const available = mac && selected === 'apple-calendar' || state.applications.some(application => application.id === selected);
+    if (!available && selected) select.appendChild(option(selected, (state.saved.displayName || 'Saved application') + ' — unavailable'));
     select.value = selected;
     save.disabled = !available || !selected || state.pending || state.saving;
     return available;
@@ -71,6 +73,7 @@
       return;
     }
     if (payload.type !== 'applications' || !Array.isArray(payload.applications)) return;
+    state.platform = payload.platform === 'win32' ? 'win32' : payload.platform === 'darwin' ? 'darwin' : state.platform || 'darwin';
     state.pending = false;
     state.applications = payload.applications.filter(application => application && validId(application.id) && typeof application.name === 'string' && application.name.length <= 1024).map(application => ({ id: application.id, name: application.name }));
     if (payload.settings) state.saved = safeSettings(payload.settings);
@@ -86,7 +89,7 @@
       if (previous) { stopSaving(previous); try { previous.socket.close(); } catch {} }
       save.disabled = true; message('Invalid AJAZZ connection port. Reopen this action.', true); return;
     }
-    const state = { uuid, actionContext: info.context === undefined ? uuid : typeof info.context === 'string' && info.context.trim() ? info.context : null, action: info.action || 'com.weboff.digitalclock.clock', saved: safeSettings(info.payload?.settings || info.settings), applications: [], pending: false, latest: null, choice: null, dirty: false, socket: null, saving: false, pendingSave: null, ackTimer: null };
+    const state = { uuid, platform: null, actionContext: info.context === undefined ? uuid : typeof info.context === 'string' && info.context.trim() ? info.context : null, action: info.action || 'com.weboff.digitalclock.clock', saved: safeSettings(info.payload?.settings || info.settings), applications: [], pending: false, latest: null, choice: null, dirty: false, socket: null, saving: false, pendingSave: null, ackTimer: null };
     connection = state;
     if (previous) { stopSaving(previous); try { previous.socket.close(); } catch { /* A replaced connection cannot update this inspector. */ } }
     state.socket = new WebSocket('ws://127.0.0.1:' + port);
@@ -105,7 +108,7 @@
     if (!state) return;
     state.dirty = true;
     if (state.pending) state.choice = select.value;
-    const available = select.value === 'apple-calendar' || state.applications.some(application => application.id === select.value);
+    const available = state.platform === 'darwin' && select.value === 'apple-calendar' || state.applications.some(application => application.id === select.value);
     save.disabled = state.pending || state.saving || !available || state.socket.readyState !== WebSocket.OPEN;
     message(available ? 'Save this application for this clock key.' : 'Choose an installed application.', !available);
   });
@@ -113,7 +116,7 @@
     const state = connection;
     if (!state || state.pending || state.saving) return;
     const selected = state.applications.find(application => application.id === select.value);
-    if (select.value !== 'apple-calendar' && !selected) { message('Choose an installed application.', true); return; }
+    if (!(state.platform === 'darwin' && select.value === 'apple-calendar') && !selected) { message('Choose an installed application.', true); return; }
     const payload = { applicationId: select.value, displayName: select.value === 'apple-calendar' ? 'Apple Calendar' : selected.name };
     if (send({ event: 'setSettings', context: state.uuid, payload })) {
       state.saving = true; state.pendingSave = payload;

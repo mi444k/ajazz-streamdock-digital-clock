@@ -12,7 +12,7 @@ function fixture() {
     const child = { kills: 0, kill() { this.kills++; } };
     calls.push({ file, args, options, callback, child }); return child;
   };
-  const launcher = new AppLauncher({ helperPath: '/fake/calendar-app-helper', execFileImpl, timeoutMs: 5000, setTimeoutImpl: (fn, delay) => { const id = ++sequence; timers.set(id, { fn, delay }); return id; }, clearTimeoutImpl: id => timers.delete(id) });
+  const launcher = new AppLauncher({ platform: 'darwin', helperPath: '/fake/calendar-app-helper', execFileImpl, timeoutMs: 5000, setTimeoutImpl: (fn, delay) => { const id = ++sequence; timers.set(id, { fn, delay }); return id; }, clearTimeoutImpl: id => timers.delete(id) });
   const replyList = (index = 0, applications = [calendar, exampleapp]) => calls[index].callback(null, JSON.stringify({ type: 'applications', applications }), '');
   return { launcher, calls, timers, replyList };
 }

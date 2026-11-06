@@ -9,8 +9,8 @@ function settings(value = {}) {
   return { applicationId, displayName };
 }
 class HostPlugin {
-  constructor({ uuid, send, launcher, now = () => new Date(), setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {}) {
-    Object.assign(this, { uuid, sendMessage: send, launcher, now, setTimeoutImpl, clearTimeoutImpl });
+  constructor({ uuid, send, launcher, platform = process.platform, now = () => new Date(), setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {}) {
+    Object.assign(this, { uuid, sendMessage: send, launcher, platform, now, setTimeoutImpl, clearTimeoutImpl });
     this.visible = new Map(); this.timer = null; this.timerToken = null; this.launchBusy = false; this.disposed = false;
   }
   send(value) { if (!this.disposed && typeof this.sendMessage === 'function') this.sendMessage(value); }
@@ -45,7 +45,7 @@ class HostPlugin {
     try {
       const applications = await this.launcher.list();
       if (!current()) return;
-      this.pi(context, { type: 'applications', requestId, applications: applications.map(application => ({ id: application.id, name: application.name })), settings: { ...item.settings } });
+      this.pi(context, { type: 'applications', requestId, platform: this.platform, applications: applications.map(application => ({ id: application.id, name: application.name })), settings: { ...item.settings } });
     } catch {
       if (current()) this.pi(context, { type: 'error', requestId, message: 'Could not load installed applications. Refresh the list and try again.' });
     }

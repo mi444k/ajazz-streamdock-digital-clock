@@ -188,3 +188,17 @@ test('distinct inspector UUID and action context route catalog and settings read
     assert.match(f.ids.get('status').textContent, /\bsaved\b/i);
   }
 });
+
+
+test('a Windows catalog requires an explicit installed application choice and never offers Apple Calendar as an available default', async () => {
+  const f = fixture(); const socket = await f.connect();
+  await f.receive(socket, { type: 'applications', platform: 'win32', requestId: f.request(socket).payload.requestId,
+    applications: [{ id: 'example-app', name: 'Example App' }], settings: { applicationId: 'apple-calendar', displayName: 'Apple Calendar' } });
+  const select = f.ids.get('calendar-application');
+  assert.equal(select.value, '', 'the macOS default must not silently choose a Windows application');
+  assert.ok(select.options.some(option => option.value === '' && /choose an application/i.test(option.textContent)));
+  assert.equal(select.options.some(option => option.value === 'apple-calendar'), false);
+  assert.equal(f.ids.get('save-application').disabled, true);
+  select.value = 'example-app'; await select.emit('change'); await f.ids.get('save-application').click();
+  assert.deepEqual(socket.sent.find(message => message.event === 'setSettings').payload, { applicationId: 'example-app', displayName: 'Example App' });
+});

@@ -23,19 +23,26 @@ function trustedPath(value) {
   if (!text(value, 4096) || !path.isAbsolute(value) || path.normalize(value) !== value || path.extname(value).toLowerCase() !== '.app') return false;
   return ['/Applications', '/System/Applications', path.join(os.homedir(), 'Applications')].some(root => value.startsWith(root + path.sep));
 }
-function catalog(value) {
+function catalog(value, platform) {
   if (value?.type !== 'applications' || !Array.isArray(value.applications) || value.applications.length > 1024) throw failure('invalid_response');
-  const result = [], ids = new Set();
+  const result = [], ids = new Set(), appIds = new Set();
   for (const application of value.applications) {
-    if (!application || !validId(application.id) || ids.has(application.id) || !text(application.name, 1024) || !text(application.bundleId, 256) || !trustedPath(application.path)) throw failure('invalid_response');
+    if (!application || !validId(application.id) || ids.has(application.id) || !text(application.name, 1024)) throw failure('invalid_response');
+    if (platform === 'win32') {
+      if (!text(application.appUserModelId, 1024) || appIds.has(application.appUserModelId) || Object.hasOwn(application, 'path') || Object.hasOwn(application, 'bundleId')) throw failure('invalid_response');
+      appIds.add(application.appUserModelId);
+      result.push({ id: application.id, name: application.name, appUserModelId: application.appUserModelId });
+    } else {
+      if (!text(application.bundleId, 256) || !trustedPath(application.path) || Object.hasOwn(application, 'appUserModelId')) throw failure('invalid_response');
+      result.push({ id: application.id, name: application.name, bundleId: application.bundleId, path: application.path });
+    }
     ids.add(application.id);
-    result.push({ id: application.id, name: application.name, bundleId: application.bundleId, path: application.path });
   }
   return result;
 }
 class AppLauncher {
-  constructor({ helperPath, execFileImpl = require('node:child_process').execFile, timeoutMs = 5000, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {}) {
-    Object.assign(this, { helperPath, execFileImpl, setTimeoutImpl, clearTimeoutImpl });
+  constructor({ helperPath, platform = process.platform, execFileImpl = require('node:child_process').execFile, timeoutMs = 5000, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {}) {
+    Object.assign(this, { helperPath, platform, execFileImpl, setTimeoutImpl, clearTimeoutImpl });
     this.timeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 5000;
     this.listPromise = null; this.pending = new Set(); this.disposed = false;
   }
@@ -52,7 +59,7 @@ class AppLauncher {
       this.pending.add(operation);
       operation.timer = this.setTimeoutImpl(() => operation.finish(failure('timeout'), undefined, true), this.timeoutMs);
       try {
-        operation.child = this.execFileImpl(this.helperPath, args, { encoding: 'utf8', shell: false, timeout: this.timeoutMs, maxBuffer: MAX_BYTES }, (error, stdout) => {
+        operation.child = this.execFileImpl(this.helperPath, args, { encoding: 'utf8', shell: false, windowsHide: true, timeout: this.timeoutMs, maxBuffer: MAX_BYTES }, (error, stdout) => {
           if (operation.done) return;
           if (error) { operation.finish(failure(error.killed || error.code === 'ETIMEDOUT' ? 'timeout' : 'unavailable')); return; }
           if (typeof stdout !== 'string' || Buffer.byteLength(stdout) > MAX_BYTES) { operation.finish(failure('invalid_response')); return; }
@@ -64,7 +71,7 @@ class AppLauncher {
       } catch { operation.finish(failure('unavailable'), undefined, true); }
     });
   }
-  async freshCatalog() { return catalog(await this.execute(['--list'])); }
+  async freshCatalog() { return catalog(await this.execute(['--list']), this.platform); }
   async list() {
     if (this.disposed) throw failure('closed');
     if (!this.listPromise) {
@@ -78,9 +85,9 @@ class AppLauncher {
     if (!validId(applicationId)) throw failure('invalid_request');
     if (this.disposed) throw failure('closed');
     const applications = await this.freshCatalog();
-    const application = applicationId === 'apple-calendar' ? applications.find(item => item.bundleId === 'com.apple.iCal') : applications.find(item => item.id === applicationId);
+    const application = applicationId === 'apple-calendar' ? this.platform === 'darwin' ? applications.find(item => item.bundleId === 'com.apple.iCal') : null : applications.find(item => item.id === applicationId);
     if (!application) throw failure('missing_app');
-    const result = await this.execute(['--open', application.path, '--bundle-id', application.bundleId]);
+    const result = await this.execute(this.platform === 'win32' ? ['--open', application.id] : ['--open', application.path, '--bundle-id', application.bundleId]);
     if (result?.type !== 'opened' || result.applicationId !== application.id) throw failure('invalid_response');
     return { opened: true, applicationId: application.id };
   }

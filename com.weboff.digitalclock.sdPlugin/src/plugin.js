@@ -13,12 +13,14 @@ function parseLaunchArgs(args) {
   if (!/^\d+$/.test(rawPort || '') || !Number.isInteger(port) || port < 1 || port > 65535 || !uuid?.trim() || registerEvent !== 'registerPlugin' || !info || typeof info !== 'object' || Array.isArray(info)) throw new Error('Invalid plugin launch arguments.');
   return { port, uuid, registerEvent, info };
 }
-function startPlugin({ args = process.argv.slice(2), WebSocketImpl = require('../vendor/ws'), LauncherImpl = AppLauncher, execFileImpl, helperPath = require('node:path').join(__dirname, '../native/calendar-app-helper'), now, setTimeoutImpl, clearTimeoutImpl } = {}) {
+function startPlugin({ args = process.argv.slice(2), WebSocketImpl = require('../vendor/ws'), LauncherImpl = AppLauncher, execFileImpl, platform = process.platform, helperPath, now, setTimeoutImpl, clearTimeoutImpl } = {}) {
+  if (!['darwin', 'win32'].includes(platform)) throw new Error('Unsupported operating system.');
+  helperPath = helperPath ?? require('node:path').join(__dirname, '../native/calendar-app-helper' + (platform === 'win32' ? '.exe' : ''));
   const launch = parseLaunchArgs(args);
   const socket = new WebSocketImpl('ws://127.0.0.1:' + launch.port);
-  const launcher = new LauncherImpl({ helperPath, execFileImpl, setTimeoutImpl, clearTimeoutImpl });
+  const launcher = new LauncherImpl({ helperPath, platform, execFileImpl, setTimeoutImpl, clearTimeoutImpl });
   let disposed = false;
-  const plugin = new HostPlugin({ uuid: launch.uuid, launcher, now, setTimeoutImpl, clearTimeoutImpl, send: value => { if (!disposed && socket.readyState === 1) socket.send(JSON.stringify(value)); } });
+  const plugin = new HostPlugin({ uuid: launch.uuid, launcher, platform, now, setTimeoutImpl, clearTimeoutImpl, send: value => { if (!disposed && socket.readyState === 1) socket.send(JSON.stringify(value)); } });
   function dispose() {
     if (disposed) return;
     disposed = true; plugin.dispose();

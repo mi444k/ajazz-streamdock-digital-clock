@@ -29,7 +29,7 @@ function fixture() {
     async open() { throw new Error('Read-only entry test forbids opening an application.'); }
     dispose() { this.disposals++; }
   }
-  const launch = () => startPlugin({ args, WebSocketImpl: Socket, LauncherImpl: Launcher, helperPath: '/fake/calendar-helper', now: () => new Date(2026, 10, 5, 14, 7), setTimeoutImpl: (fn, delay) => { const id = ++sequence; timers.set(id, { fn, delay }); return id; }, clearTimeoutImpl: id => timers.delete(id) });
+  const launch = () => startPlugin({ platform: 'darwin', args, WebSocketImpl: Socket, LauncherImpl: Launcher, helperPath: '/fake/calendar-helper', now: () => new Date(2026, 10, 5, 14, 7), setTimeoutImpl: (fn, delay) => { const id = ++sequence; timers.set(id, { fn, delay }); return id; }, clearTimeoutImpl: id => timers.delete(id) });
   return { sockets, launchers, timers, launch };
 }
 
@@ -68,7 +68,7 @@ test('entry disposes launch resources and clock timers once after socket close o
 
 test('manifest declares a separate Node20 macOS clock with both controllers and real inspector and icon assets', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../manifest.json'), 'utf8'));
-  assert.equal(manifest.Version, '0.1.3'); assert.equal(manifest.Actions.length, 1); assert.equal(manifest.Nodejs.Version, '20');
+  assert.equal(manifest.Version, '0.2.0'); assert.equal(manifest.Actions.length, 1); assert.equal(manifest.Nodejs.Version, '20');
   assert.ok(manifest.OS.some(value => value.Platform === 'mac' && value.MinimumVersion === '13.0'));
   const action = manifest.Actions[0]; assert.equal(action.UUID, 'com.weboff.digitalclock.clock'); assert.deepEqual([...action.Controllers].sort(), ['Keypad', 'Knob']);
   assert.ok(action.States.length); assert.ok(action.States.every(value => value.ShowTitle === false));
