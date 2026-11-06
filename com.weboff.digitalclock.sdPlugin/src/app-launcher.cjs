@@ -20,8 +20,8 @@ function failure(code) {
 function validId(value) { return typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value); }
 function text(value, maximum) { return typeof value === 'string' && Boolean(value.trim()) && value.length <= maximum && !/[\u0000-\u001f\u007f]/u.test(value); }
 function trustedPath(value) {
-  if (!text(value, 4096) || !path.isAbsolute(value) || path.normalize(value) !== value || path.extname(value).toLowerCase() !== '.app') return false;
-  return ['/Applications', '/System/Applications', path.join(os.homedir(), 'Applications')].some(root => value.startsWith(root + path.sep));
+  if (!text(value, 4096) || !path.posix.isAbsolute(value) || path.posix.normalize(value) !== value || path.posix.extname(value).toLowerCase() !== '.app') return false;
+  return ['/Applications', '/System/Applications', path.posix.join(os.homedir(), 'Applications')].some(root => value.startsWith(root + '/'));
 }
 function catalog(value, platform) {
   if (value?.type !== 'applications' || !Array.isArray(value.applications) || value.applications.length > 1024) throw failure('invalid_response');
